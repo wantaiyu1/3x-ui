@@ -56,9 +56,9 @@ _write_update_status() {
 _report_update_exit() {
     local code=$?
     if [[ "${code}" -eq 0 ]]; then
-        _write_update_status "success" "0"
+        _write_update_status "成功" "0"
     else
-        _write_update_status "failed" "${code}"
+        _write_update_status "失败" "${code}"
     fi
 }
 trap _report_update_exit EXIT
@@ -66,12 +66,12 @@ trap 'exit 143' TERM
 trap 'exit 130' INT
 
 # check root
-[[ $EUID -ne 0 ]] && _fail "FATAL ERROR: Please run this script with root privilege."
+[[ $EUID -ne 0 ]] && _fail "严重错误：请以 root 权限运行本脚本。"
 
 if _command_exists curl; then
     curl_bin=$(which curl)
 else
-    _fail "ERROR: Command 'curl' not found."
+    _fail "错误：未找到 curl 命令。"
 fi
 # The panel sets XUI_UPDATE_PROXY to its egress bridge's socks5h URL for the GitHub downloads.
 # The IP lookups use plain curl so they still report this server's own address.
@@ -85,9 +85,9 @@ elif [[ -f /usr/lib/os-release ]]; then
     source /usr/lib/os-release
     release=$ID
 else
-    _fail "Failed to check the system OS, please contact the author!"
+    _fail "检测系统 OS 失败，请联系作者！"
 fi
-echo "The OS release is: $release"
+echo "系统发行版：$release"
 
 arch() {
     case "$(uname -m)" in
@@ -98,11 +98,11 @@ arch() {
         armv6* | armv6) echo 'armv6' ;;
         armv5* | armv5) echo 'armv5' ;;
         s390x) echo 's390x' ;;
-        *) echo -e "${red}Unsupported CPU architecture!${plain}" && rm -f "${cur_dir}/${script_name}" > /dev/null 2>&1 && exit 2 ;;
+        *) echo -e "${red}不支持的 CPU 架构！${plain}" && rm -f "${cur_dir}/${script_name}" > /dev/null 2>&1 && exit 2 ;;
     esac
 }
 
-echo "Arch: $(arch)"
+echo "架构：$(arch)"
 
 gen_random_string() {
     local length="$1"
@@ -137,7 +137,7 @@ load_xui_env() {
 }
 
 install_base() {
-    echo -e "${green}Updating and install dependency packages...${plain}"
+    echo -e "${green}正在更新并安装依赖包...${plain}"
     case "${release}" in
         ubuntu | debian | armbian)
             apt-get update > /dev/null 2>&1 && apt-get install -y -q cron curl tar tzdata socat openssl > /dev/null 2>&1
@@ -170,7 +170,7 @@ install_base() {
 config_after_update() {
     local panel_needs_restart=0
 
-    echo -e "${yellow}x-ui settings:${plain}"
+    echo -e "${yellow}x-ui 设置：${plain}"
     ${xui_folder}/x-ui setting -show true
     ${xui_folder}/x-ui migrate
 
@@ -187,7 +187,7 @@ config_after_update() {
                 if (failed || credentials != 1 || ports != 1 || paths != 1 || (path != "" && path !~ /^\//)) exit 1
                 print path
             }'); then
-        echo -e "${red}Unable to read webBasePath; leaving existing settings unchanged.${plain}" >&2
+        echo -e "${red}无法读取 webBasePath，保持现有设置不变。${plain}" >&2
         return 1
     fi
     existing_webBasePath=${existing_webBasePath#/}
@@ -344,12 +344,12 @@ _xui_warn_unsupported_hardening() {
         fi
     done
     [[ -n "$missing" ]] || return 0
-    echo -e "${yellow}Note: systemd ${version} ignores part of the hardening in x-ui.service; the panel still starts.${plain}"
-    echo "      Not applied, needs a newer systemd: ${missing}."
+    echo -e "${yellow}注意：systemd ${version} 会忽略 x-ui.service 中的部分加固配置；面板仍可正常启动。${plain}"
+    echo "      未应用，需要更新版本的 systemd：${missing}。"
     if [[ "$version" -lt 231 ]]; then
-        echo "      The panel's folders stay writable through ReadWriteDirectories=, the alias this script installs."
+        echo "      面板的目录通过本脚本安装的 ReadWriteDirectories= 别名保持可写。"
     fi
-    echo "      The rest of the hardening is in force. Upgrade systemd to apply the above."
+    echo "      其余加固配置已生效。升级 systemd 后可应用上述配置。"
     return 0
 }
 
@@ -419,9 +419,9 @@ _xui_service_write_paths_dropin() {
         line="${line} -${escaped_path}"
     done
     if [[ -n "$whitespace_paths" ]]; then
-        echo "Warning: these folders contain whitespace and were left out of" >&2
-        echo "         10-xui-sandbox.conf: $whitespace_paths" >&2
-        echo "         The panel cannot write to them under the unit's sandbox." >&2
+        echo "警告：以下目录路径包含空白字符，已被排除在" >&2
+        echo "         10-xui-sandbox.conf 之外：$whitespace_paths" >&2
+        echo "         在 unit 沙箱下，面板无法写入这些目录。" >&2
     fi
     line="${line# }"
     [[ -n "$line" ]] || return 1
@@ -493,8 +493,8 @@ _install_xui_service_unit() {
         return 1
     fi
     if ! _xui_service_write_paths_dropin; then
-        echo -e "${yellow}Warning: could not refresh ${xui_service}/x-ui.service.d/10-xui-sandbox.conf.${plain}"
-        echo -e "${yellow}If XUI_DB_FOLDER or XUI_LOG_FOLDER points outside /etc/x-ui and /var/log/x-ui, the panel may not be able to write to it under ProtectSystem=full.${plain}"
+        echo -e "${yellow}警告：无法刷新 ${xui_service}/x-ui.service.d/10-xui-sandbox.conf。${plain}"
+        echo -e "${yellow}如果 XUI_DB_FOLDER 或 XUI_LOG_FOLDER 指向 /etc/x-ui 与 /var/log/x-ui 之外，在 ProtectSystem=full 下面板可能无法写入。${plain}"
     fi
     _xui_warn_unsupported_hardening
     return 0
@@ -508,9 +508,9 @@ require_repo_files() {
     shift
     [[ "${ref}" == "main" ]] && return 0
     for name in "$@"; do
-        status=$(${curl_bin} -sIL --retry 3 --connect-timeout 15 -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/MHSanaei/3x-ui/${ref}/${name}")
+        status=$(${curl_bin} -sIL --retry 3 --connect-timeout 15 -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/wantaiyu1/3x-ui/${ref}/${name}")
         if [[ "${status}" != "200" ]]; then
-            _fail "ERROR: ${name} is not available for ${ref} (HTTP ${status}). Update to a release that ships it, or to 'dev-latest'. The current installation is untouched."
+            _fail "错误：${name} 在 ${ref} 中不可用（HTTP ${status}）。请更新到包含该文件的版本，或使用 'dev-latest'。当前安装未被改动。"
         fi
     done
 }
@@ -522,18 +522,18 @@ update_x-ui() {
 
     if [ -f "${xui_folder}/x-ui" ]; then
         current_xui_version=$(${xui_folder}/x-ui -v)
-        echo -e "${green}Current x-ui version: ${current_xui_version}${plain}"
+        echo -e "${green}当前 x-ui 版本：${current_xui_version}${plain}"
     else
-        _fail "ERROR: Current x-ui version: unknown"
+        _fail "错误：当前 x-ui 版本：未知"
     fi
 
-    echo -e "${green}Downloading new x-ui version...${plain}"
+    echo -e "${green}正在下载新版本 x-ui...${plain}"
 
     # XUI_UPDATE_TAG lets the panel target a specific release tag (e.g. the
     # rolling dev-latest pre-release). Empty keeps the default latest-stable flow.
     if [[ -n "${XUI_UPDATE_TAG}" ]]; then
         tag_version="${XUI_UPDATE_TAG}"
-        echo -e "${green}Using update tag: ${tag_version}${plain}"
+        echo -e "${green}使用更新标签：${tag_version}${plain}"
     else
         tag_version=$(${curl_bin} -Ls "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest" 2> /dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [[ ! -n "$tag_version" ]]; then
@@ -587,7 +587,7 @@ update_x-ui() {
         echo -e "${green}Downloading startup unit x-ui.rc...${plain}"
         xui_rc_temp="/etc/init.d/x-ui.tmp.$$"
         rm -f "${xui_rc_temp}"
-        ${curl_bin} -fLRo "${xui_rc_temp}" "https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.rc" > /dev/null 2>&1
+        ${curl_bin} -fLRo "${xui_rc_temp}" "https://raw.githubusercontent.com/wantaiyu1/3x-ui/${script_ref}/x-ui.rc" > /dev/null 2>&1
         if [[ $? -ne 0 ]]; then
             rm -f "${xui_rc_temp}" "${archive}"
             _fail "ERROR: Failed to download startup unit x-ui.rc, please be sure that your server can access GitHub"
@@ -759,13 +759,13 @@ update_x-ui() {
                 echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
                 case "${release}" in
                     ubuntu | debian | armbian)
-                        service_unit_url="https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.service.debian"
+                        service_unit_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/${script_ref}/x-ui.service.debian"
                         ;;
                     arch | manjaro | parch)
-                        service_unit_url="https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.service.arch"
+                        service_unit_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/${script_ref}/x-ui.service.arch"
                         ;;
                     *)
-                        service_unit_url="https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.service.rhel"
+                        service_unit_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/${script_ref}/x-ui.service.rhel"
                         ;;
                 esac
 
