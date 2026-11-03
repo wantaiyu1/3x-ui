@@ -506,7 +506,7 @@ _install_xui_service_unit() {
 require_repo_files() {
     local ref="$1" name status
     shift
-    [[ "${ref}" == "main" ]] && return 0
+    return 0
     for name in "$@"; do
         status=$(${curl_bin} -sIL --retry 3 --connect-timeout 15 -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/wantaiyu1/3x-ui/${ref}/${name}")
         if [[ "${status}" != "200" ]]; then
@@ -535,7 +535,7 @@ update_x-ui() {
         tag_version="${XUI_UPDATE_TAG}"
         echo -e "${green}使用更新标签：${tag_version}${plain}"
     else
-        tag_version=$(${curl_bin} -Ls "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest" 2> /dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        tag_version=$(${curl_bin} -Ls "https://raw.githubusercontent.com/wantaiyu1/3x-ui/binaries/VERSION" | head -n1 | tr -d '[:space:]' 2> /dev/null)
         if [[ ! -n "$tag_version" ]]; then
             _fail "ERROR: Failed to fetch x-ui version, it may be due to GitHub API restrictions, please try it later"
         fi
@@ -550,7 +550,7 @@ update_x-ui() {
     # The unit files are only fetched when the release tarball lacks them, so
     # they are checked at that point instead of here.
     [[ $release == "alpine" ]] && require_repo_files "${script_ref}" "x-ui.rc"
-    ${curl_bin} -fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2> /dev/null
+    ${curl_bin} -fLRo ${xui_folder}-linux-$(arch).tar.gz https://raw.githubusercontent.com/wantaiyu1/3x-ui/binaries/x-ui/${tag_version:-latest}/x-ui-linux-$(arch).tar.gz 2> /dev/null
     if [[ $? -ne 0 ]]; then
         _fail "ERROR: Failed to download x-ui, please be sure that your server can access GitHub"
     fi
@@ -563,7 +563,7 @@ update_x-ui() {
     # predating the sidecar) is tolerated with a warning.
     archive="${xui_folder}-linux-$(arch).tar.gz"
     rm -f "${archive}.sha256"
-    sidecar_code=$(${curl_bin} -sL --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 60 -o "${archive}.sha256" -w '%{http_code}' "https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz.sha256" 2> /dev/null)
+    sidecar_code=$(${curl_bin} -sL --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 60 -o "${archive}.sha256" -w '%{http_code}' "https://raw.githubusercontent.com/wantaiyu1/3x-ui/binaries/x-ui/${tag_version:-latest}/x-ui-linux-$(arch).tar.gz.sha256" 2> /dev/null)
     if [[ "${sidecar_code}" == "200" ]]; then
         expected_sha256=$(awk 'NR == 1 {print $1}' "${archive}.sha256")
         actual_sha256=$(sha256sum "${archive}" | awk '{print $1}')
@@ -587,7 +587,7 @@ update_x-ui() {
         echo -e "${green}Downloading startup unit x-ui.rc...${plain}"
         xui_rc_temp="/etc/init.d/x-ui.tmp.$$"
         rm -f "${xui_rc_temp}"
-        ${curl_bin} -fLRo "${xui_rc_temp}" "https://raw.githubusercontent.com/wantaiyu1/3x-ui/${script_ref}/x-ui.rc" > /dev/null 2>&1
+        ${curl_bin} -fLRo "${xui_rc_temp}" "https://raw.githubusercontent.com/wantaiyu1/3x-ui/zh-cn/x-ui.rc" > /dev/null 2>&1
         if [[ $? -ne 0 ]]; then
             rm -f "${xui_rc_temp}" "${archive}"
             _fail "ERROR: Failed to download startup unit x-ui.rc, please be sure that your server can access GitHub"
@@ -685,8 +685,15 @@ update_x-ui() {
     # The archive's x-ui.sh is built from the same commit as the binary.
     echo -e "${green}Installing x-ui.sh script...${plain}"
     local xui_script_temp="/usr/bin/x-ui-temp.$$"
-    if ! cp -f x-ui.sh "${xui_script_temp}" || ! mv -f "${xui_script_temp}" /usr/bin/x-ui; then
+    local zh_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/zh-cn/x-ui.sh"
+    # 本 fork 不跟随上游：优先安装汉化菜单脚本，失败才回退发布包内的英文版。
+    if ! curl -fsSL --retry 3 --connect-timeout 15 -o "${xui_script_temp}" "${zh_url}" || [[ ! -s "${xui_script_temp}" ]]; then
+        echo -e "${yellow}汉化菜单脚本下载失败，回退使用发布包内置版本${plain}"
         rm -f "${xui_script_temp}"
+        if ! cp -f x-ui.sh "${xui_script_temp}" || ! mv -f "${xui_script_temp}" /usr/bin/x-ui; then
+            _fail "ERROR: Failed to install x-ui.sh script"
+        fi
+    elif ! mv -f "${xui_script_temp}" /usr/bin/x-ui; then
         _fail "ERROR: Failed to install x-ui.sh script"
     fi
 
@@ -759,13 +766,13 @@ update_x-ui() {
                 echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
                 case "${release}" in
                     ubuntu | debian | armbian)
-                        service_unit_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/${script_ref}/x-ui.service.debian"
+                        service_unit_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/zh-cn/x-ui.service.debian"
                         ;;
                     arch | manjaro | parch)
-                        service_unit_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/${script_ref}/x-ui.service.arch"
+                        service_unit_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/zh-cn/x-ui.service.arch"
                         ;;
                     *)
-                        service_unit_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/${script_ref}/x-ui.service.rhel"
+                        service_unit_url="https://raw.githubusercontent.com/wantaiyu1/3x-ui/zh-cn/x-ui.service.rhel"
                         ;;
                 esac
 
